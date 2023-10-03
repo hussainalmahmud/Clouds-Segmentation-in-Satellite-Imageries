@@ -59,7 +59,7 @@ def train_model(
         Validation size: {len(valid_set)}
         Checkpoints:     {save_checkpoint}
         Device:          {device.type}
-         Mixed Precision: {amp}
+        Mixed Precision: {amp}
     ''')
     
     optimizer = optim.RMSprop(model.parameters(),
@@ -98,21 +98,20 @@ def train_model(
                     if not (torch.isinf(value.grad) | torch.isnan(value.grad)).any():
                         histograms['Gradients/' + tag] = wandb.Histogram(value.grad.data.cpu())
 
-                iou = eval_fun(model, val_loader, device, amp)
+                iou, f1_score = eval_fun(model, val_loader, device, amp)
                 scheduler.step(iou)
 
                 logging.info('Valid iou: {}'.format(iou))
+                logging.info('Valid f1_score: {}'.format(f1_score))
                 try:
                     experiment.log({
                         'learning rate': optimizer.param_groups[0]['lr'],
                         # 'images': wandb.Image(images[0].cpu()),
-                        'masks': {
+                        # 'masks': {
                             # 'true': wandb.Image(true_masks[0].float().cpu()),
                             # 'pred': wandb.Image(masks_pred.argmax(dim=1)[0].float().cpu()),
                             # 'pred': wandb.Image((masks_pred > 0.5).float()[0].cpu())
-
-
-                        },
+                        # },
                         'step': global_step,
                         'epoch': epoch,
                         **histograms
@@ -123,7 +122,7 @@ def train_model(
             dir_checkpoint = Path('./checkpoints/')
             Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
             best_iou = iou
-            torch.save(model.state_dict(), dir_checkpoint / f'best_model_unet.pth')
+            torch.save(model.state_dict(), dir_checkpoint / f'best_model.pth')
             logging.info(f'Checkpoint {epoch} saved !')
     
 if __name__ == '__main__':
@@ -131,13 +130,16 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logging.info(f'Using device {device}')
 
-    model = UNet_base()
+    # model = UNet_base()
+    import segmentation_models_pytorch as smp
+    model = smp.DeepLabV3Plus(encoder_name="resnet101", encoder_weights="imagenet", in_channels=3, classes=1)
+
     model.to(device=device)
     
     
-    logging.info(f'Network:\n'
-                f'\t{model.in_channels} input channels\n'
-                f'\t{model.n_classes} output channels (classes)\n')
+    # logging.info(f'Network:\n'
+    #             f'\t{model.in_channels} input channels\n'
+    #             f'\t{model.n_classes} output channels (classes)\n')
     train_model(
             model=model,
             epochs=25,

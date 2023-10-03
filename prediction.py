@@ -27,24 +27,19 @@ import numpy as np
 import imageio
 
 def gather_image_paths(path_pattern):
-    return glob.glob(path_pattern)
+    image_path = glob.glob(path_pattern)
+    print(f"{len(image_path)} images")
+    return image_path
 
 def create_dataframe_from_paths(paths):
-    return pd.DataFrame(paths, columns=['image_path'])
+    df_test = pd.DataFrame(paths, columns=['image_path'])
+    print(df_test.head())
+    return df_test
 
-def gather_image_paths(path_pattern):
-    return glob.glob(path_pattern)
 
-def run_inference(df_test, model_path, PATH_OUTPUT, batch_size=4):
-
-    test_loader = DataLoader(df_test, batch_size=batch_size, shuffle=False)
-    
-    model = UNet_base()
-    model.load_state_dict(torch.load(model_path))
+def run_inference(model,df_test, test_loader, model_path, PATH_OUTPUT, batch_size=4):
     model = model.cuda()
     model.eval()
-
-
     for i, (img) in tqdm(enumerate(test_loader), total=len(test_loader)):
         with torch.no_grad():
             img = img.cuda()
@@ -85,23 +80,24 @@ def run_inference(df_test, model_path, PATH_OUTPUT, batch_size=4):
                 
 
 def main():
+    batch_size = 4
     image_paths = gather_image_paths('./data/evaluation_true_color/evaluation_*.tif')
     df_test = create_dataframe_from_paths(image_paths)
-    print(f"{len(image_paths)} images")
-    print(df_test.head())
+
 
     df_test = LoadDataset(df_test, "test", DataTransform())
+    test_loader = DataLoader(df_test, batch_size, shuffle=False)
     
     PATH_OUTPUT = './OUTPUT_Predictions/submission/'
     if not os.path.exists(PATH_OUTPUT):
         os.makedirs(PATH_OUTPUT)
 
-    # Now run the bone inference
-    model_path = "./checkpoints/best_model_unet.pth"
+    model_path = "./checkpoints/best_model_deepV3.pth"
+    # model = UNet_base()
+    model = smp.DeepLabV3Plus(encoder_name="resnet101", encoder_weights="imagenet", in_channels=3, classes=1)
+    model.load_state_dict(torch.load(model_path))
     
-    # check if device gpu is 0
-    print("torch.cuda.current_device: ",torch.cuda.current_device())  
-    run_inference(df_test, model_path=model_path, PATH_OUTPUT=PATH_OUTPUT,batch_size=4)
+    run_inference(model,df_test,test_loader, model_path=model_path, PATH_OUTPUT=PATH_OUTPUT, batch_size=batch_size)
 
 if __name__ == '__main__':
     main()

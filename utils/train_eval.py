@@ -4,7 +4,8 @@ from tqdm import tqdm
 import numpy as np
 import torch.nn.functional as F
 from tqdm import tqdm
-from utils.metrics import intersection_over_union
+from utils.metrics import intersection_over_union, f1_score_fun
+
 
 def train_fun(model, criterion, optimizer, grad_scaler, train_loader, device, amp, gradient_clipping, epoch, epochs, experiment, global_step):
     epoch_loss = 0
@@ -16,7 +17,7 @@ def train_fun(model, criterion, optimizer, grad_scaler, train_loader, device, am
         for _, (images, true_masks) in enumerate(train_loader):
             
             images = images.type(torch.FloatTensor).to(device=device)
-            true_masks = true_masks.type(torch.FloatTensor).to(device=device).squeeze() # Add a channel dimension
+            true_masks = true_masks.type(torch.FloatTensor).to(device=device).squeeze()
 
             with torch.autocast(device.type if device.type != 'mps' else 'cpu', enabled=amp):
                 masks_pred = model(images)
@@ -44,13 +45,13 @@ def train_fun(model, criterion, optimizer, grad_scaler, train_loader, device, am
             'average_epoch_loss': average_epoch_loss,
             'epoch': epoch
         })
-    print("total_step train", total_step)
     return average_epoch_loss, total_step
 
 
 @torch.inference_mode()
 def eval_fun(model, val_loader, device, amp):
     iou_list = []
+    f1_list = []
     val_loader = tqdm(val_loader, desc='Validation round', unit='batch', leave=False)
     with torch.no_grad():
         model.eval()
@@ -62,10 +63,17 @@ def eval_fun(model, val_loader, device, amp):
                 probas = F.sigmoid(predicted_mask)
                 
             predicted_mask = (probas > 0.5).float().squeeze()
+
             batch_iou = intersection_over_union(predicted_mask, true_mask)
+            batch_f1 = f1_score_fun(predicted_mask, true_mask)
             iou_list.append(batch_iou)
-            val_loader.set_postfix(iou=(torch.sum(torch.stack(iou_list)) / len(iou_list)).item())
+            f1_list.append(batch_f1)
+
+            mean_iou = (torch.sum(torch.stack(iou_list)) / len(iou_list)).item()
+            mean_f1 = torch.mean(torch.tensor(f1_list, dtype=torch.float64)).item()
+
+            val_loader.set_postfix(iou=mean_iou, f1=mean_f1)
 
     model.train()
-    return sum(iou_list) / len(iou_list)
+    return sum(iou_list) / len(iou_list), sum(f1_list) / len(f1_list)
 

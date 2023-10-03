@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+from sklearn.metrics import f1_score
 
 class XEDiceLoss(torch.nn.Module):
     """
@@ -55,4 +56,20 @@ def intersection_over_union(pred, true):
     union = np.logical_or(true, pred)
     return intersection.sum() / union.sum()
 
+def f1_score_fun(pred, true):
+    """
+    Calculates f1 score for a batch of images.
+
+    Args:
+        pred (torch.Tensor): a tensor of predictions
+        true (torc.Tensor): a tensor of labels
+
+    Returns:
+        f1_score (int): f1 score
+    """
+    true_np = true.cpu().numpy().flatten().astype(int)
+    pred_np = pred.cpu().numpy().flatten().astype(int)
+
+    score = f1_score(pred_np, true_np)
     
+    return score
