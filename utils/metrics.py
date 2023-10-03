@@ -3,6 +3,7 @@ import torch.nn as nn
 import numpy as np
 from sklearn.metrics import f1_score
 
+
 class XEDiceLoss(torch.nn.Module):
     """
     Computes (0.5 * CrossEntropyLoss) + (0.5 * DiceLoss).
@@ -13,26 +14,26 @@ class XEDiceLoss(torch.nn.Module):
         self.xe = torch.nn.BCEWithLogitsLoss(reduction="none")
 
     def forward(self, pred, true):
-        
         pred = pred.squeeze(1)
         valid_pixel_mask = true.ne(255)  # valid pixel mask
 
         # Cross-entropy loss
-        temp_true = torch.where((true == 255), 0, true) 
+        temp_true = torch.where((true == 255), 0, true)
         xe_loss = self.xe(pred, temp_true.float())
         xe_loss = xe_loss.masked_select(valid_pixel_mask).mean()
 
         # Dice loss
-        
+
         pred = pred.sigmoid()
-        
+
         pred = pred.masked_select(valid_pixel_mask)
         true = true.masked_select(valid_pixel_mask)
-        
-        dice_loss = 1 - (2.0 * torch.sum(pred * true) + 1e-7) / (torch.sum(pred + true) + 1e-7)
-        
-        return (0.5 * xe_loss) + (0.5 * dice_loss)
 
+        dice_loss = 1 - (2.0 * torch.sum(pred * true) + 1e-7) / (
+            torch.sum(pred + true) + 1e-7
+        )
+
+        return (0.5 * xe_loss) + (0.5 * dice_loss)
 
 
 def intersection_over_union(pred, true):
@@ -56,6 +57,7 @@ def intersection_over_union(pred, true):
     union = np.logical_or(true, pred)
     return intersection.sum() / union.sum()
 
+
 def f1_score_fun(pred, true):
     """
     Calculates f1 score for a batch of images.
@@ -71,5 +73,5 @@ def f1_score_fun(pred, true):
     pred_np = pred.cpu().numpy().flatten().astype(int)
 
     score = f1_score(pred_np, true_np)
-    
+
     return score
