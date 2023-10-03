@@ -1,114 +1,155 @@
-import logging
 import numpy as np
-import torch
-from PIL import Image
-from functools import lru_cache
-from functools import partial
-from itertools import repeat
-from multiprocessing import Pool
-from os import listdir
-from os.path import splitext, isfile, join
-from pathlib import Path
-from torch.utils.data import Dataset
-from tqdm import tqdm
-from albumentations import Compose
+import tifffile
 import albumentations as A
-from skimage.transform import resize
+from torch.utils.data import Dataset
+from albumentations.pytorch import ToTensorV2
+import glob
+import pandas as pd
+from sklearn.model_selection import train_test_split
+import re
+import os
+def prepare_datasets():
+    """
+    Prepare training and validation datasets.
 
+    Returns:
+        train_set, valid_set: The prepared training and validation datasets.
+    """
 
-class BasicDataset(Dataset):
-    def __init__(self, images_dir: str, mask_dir: str, scale: float = 1.0, mask_suffix: str = '', augment: bool = False):
-        self.images_dir = Path(images_dir)
-        self.mask_dir = Path(mask_dir)
-        assert 0 < scale <= 1, 'Scale must be between 0 and 1'
-        self.scale = scale
-        self.mask_suffix = mask_suffix
+    # Retrieve paths for image and mask data
+    PATH_IMGS = glob.glob('./data/train_true_color/train_true_color_*.tif')
+    PATH_MASKS = glob.glob('./data/train_mask/train_mask_*.tif')
 
-        self.ids = [splitext(file)[0] for file in listdir(images_dir) if isfile(join(images_dir, file)) and not file.startswith('.')]
-        self.mask_ids = [splitext(file)[0] for file in listdir(mask_dir) if isfile(join(mask_dir, file)) and not file.startswith('.')]
-        if not self.ids:
-            raise RuntimeError(f'No input file found in {images_dir}, make sure you put your images there')
-        self.augment = augment
-        if self.augment:
-            self.augmentations = A.Compose([
-                A.HorizontalFlip(p=0.5),
-                A.RandomBrightnessContrast(p=0.2),
-                # Add more augmentations as needed
-            ])
+    # Function to extract the numerical identifier from filename
+    def extract_number(filepath):
+        # Extract number from the filename using regular expression
+        match = re.search(r'(\d+)', filepath)
+        if match:
+            return int(match.group(1))
+        return -1  # return a default value if no number is found
+
+    # Sort file paths based on numerical identifier
+    PATH_IMGS = sorted(PATH_IMGS, key=extract_number)
+    PATH_MASKS = sorted(PATH_MASKS, key=extract_number)
+
+    # Create a DataFrame with image and mask paths
+    dataset = pd.DataFrame({
+        'image_path': PATH_IMGS,
+        'mask_path': PATH_MASKS
+    })
+    
+    # Check through the dataset to ensure that each image and its corresponding mask share the same identifier
+    for _, row in dataset.iterrows():
+        # Extract the base filename without extension
+        img_name = os.path.splitext(os.path.basename(row['image_path']))[0].replace('train_true_color_', '')
+        mask_name = os.path.splitext(os.path.basename(row['mask_path']))[0].replace('train_mask_', '')
         
+        # Check if the identifiers match
+        assert img_name == mask_name, f"Mismatch found: {img_name} and {mask_name}"
         
-        logging.info(f'Creating dataset with {len(self.ids)} examples')
-        logging.info('Scanning mask files to determine unique values')
-        self.mask_values = [0, 1]
-        logging.info(f'Unique mask values: {self.mask_values}')
+    print("head dataset ", dataset.head())
+    print("dataset shape ",dataset.shape)
+    # dataset = dataset.iloc[:100]
+
+    # Split dataset into training and validation subsets
+    train_df, valid_df = train_test_split(dataset, test_size=0.2, random_state=42)
+
+    # Assume LoadDataset and DataTransform are defined elsewhere in your code
+    train_set = LoadDataset(train_df, 'train', transform=DataTransform())
+    valid_set = LoadDataset(valid_df, 'valid', transform=DataTransform())
+
+    print("Training set size: ", len(train_set))
+    print("Validation set size: ", len(valid_set))
+
+    return train_set, valid_set
+
+
+class DataTransform():
+	"""
+	A class used to transform datasets.
+
+	Attributes:
+		data_transform (dict): Contains the transformation operations for different phases (e.g. "train").
+
+	Methods:
+		__call__(phase, img, mask=None): Transforms the given image and mask based on the specified phase.
+
+	Usage:
+		transform = DataTransform()
+		transformed_data = transform("train", img, mask)
+	"""
+	def __init__(self):
+		self.data_transform = {
+			"train": A.Compose(
+				[
+					A.RandomRotate90(p=0.5),
+					A.HorizontalFlip(p=0.5),
+                    A.VerticalFlip(p=0.5),
+                    A.Transpose(p=0.5),
+					A.RandomResizedCrop(512, 512, interpolation=1, p=1),
+					ToTensorV2(),
+				]
+			),
+        
+            "valid": A.Compose(
+				[
+					A.Resize(512, 512, interpolation=1, p=1),
+					ToTensorV2(),
+				]
+			),
+			"test": A.Compose(
+				[
+					A.Resize(512, 512, interpolation=1, p=1),
+					ToTensorV2(),
+				]
+			)
+		}
+
+	def __call__(self, phase, img, mask=None):
+		if mask is None:
+			return self.data_transform[phase](image=img)
+		else:
+			transformed = self.data_transform[phase](image=img, mask=mask)
+			return transformed
+
+class LoadDataset(Dataset):
+    def __init__(self, df, phase, transform):
+        """
+        Args:
+            df (DataFrame): DataFrame containing file paths. Must have 'image_path' column. If masks are present, it should also have 'mask_path'.
+            phase (str): One of train, valid, test.
+            transform (DataTransform): Transformation class.
+        """
+        self.df = df
+        self.phase = phase
+        self.transform = transform
 
     def __len__(self):
-        return len(self.ids)
-
-    @staticmethod
-    def preprocess(mask_values, img_array, scale, is_mask):
+        return len(self.df)
+    
+    def get_dataframe(self):
+        """Method to return the internal DataFrame."""
+        return self.df
+    
+    def __getitem__(self, index):
+        row = self.df.iloc[index]
         
-        w, h = img_array.shape[:2]
-        newW, newH = int(scale * w), int(scale * h)
-        assert newW > 0 and newH > 0, 'Scale is too small, resized images would have no pixel'
-        if is_mask:
-            img_resized = resize(img_array, (newH, newW), order=0, preserve_range=True, mode='constant')
+        img_path = row['image_path']
+        img = tifffile.imread(img_path).astype(np.float32) 
+        img = np.clip(img, 400, 2400) / 2400
+        
+        if self.phase == 'test':
+            img = self.transform(self.phase, img)["image"]
+            return img
         else:
-            img_resized = resize(img_array, (newH, newW), order=3, preserve_range=True, mode='constant')
-        
-        # Ensure we return the same dtype as the input
-        img_resized = img_resized.astype(img_array.dtype)
+            mask_path = row['mask_path']
+            mask = tifffile.imread(mask_path).astype(np.float32)
 
-        if is_mask:
-            mask = np.zeros((newH, newW), dtype=np.int64)
-            for i, v in enumerate(mask_values):
-                if img_resized.ndim == 2:
-                    mask[img_resized == v] = i
-                else:
-                    mask[(img_resized == v).all(-1)] = i
+            if self.phase == 'train':
+                transformed = self.transform(self.phase, img, mask)
+                return transformed['image'], transformed['mask']
+            
+            elif self.phase == 'valid':
+                transformed = self.transform(self.phase, img, mask)
+                return transformed['image'], transformed['mask']
 
-            return mask
-
-        else:
-            if img_resized.ndim == 2:
-                img_resized = img_resized[np.newaxis, ...]
-            else:
-                img_resized = img_resized.transpose((2, 0, 1))
-
-            if (img_resized > 1).any():
-                img_resized = img_resized / 255.0
-
-            return img_resized
-
-    def __getitem__(self, idx):
-        img_path = self.ids[idx]
-        mask_path = self.mask_ids[idx]
-        images_dir = self.images_dir
-        mask_dir = self.mask_dir
-
-        
-        imgs_file = join(images_dir, img_path + '.tif')
-        masks_file = join(mask_dir, mask_path + '.tif')
-        import tifffile
-        img = tifffile.imread(imgs_file).astype(np.float32)
-        mask = tifffile.imread(masks_file).astype(np.float32)
-
-        assert img.shape[:2] == mask.shape[:2], \
-            f'Image and mask {img_path} should be the same size, but are {img.shape} and {mask.shape}'
-
-        if self.augment:
-            augmented = self.augmentations(image=np.array(img), mask=np.array(mask))
-            img = augmented['image']
-            mask = augmented['mask']
-        img = self.preprocess(self.mask_values, img, self.scale, is_mask=False)
-        mask = self.preprocess(self.mask_values, mask, self.scale, is_mask=True)
-
-        return {
-            'image': torch.as_tensor(img.copy()).float().contiguous(),
-            'mask': torch.as_tensor(mask.copy()).long().contiguous()
-        }
-
-
-class CloudDataset(BasicDataset):
-    def __init__(self, images_dir, mask_dir, scale=1):
-        super().__init__(images_dir, mask_dir, scale, mask_suffix='_mask')
