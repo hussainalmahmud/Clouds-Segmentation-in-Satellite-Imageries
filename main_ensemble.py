@@ -21,8 +21,10 @@ from model.smp_models import SegModel
 from utils.data_utils import prepare_datasets
 from utils.train_eval import train_fun, eval_fun
 from utils.metrics import XEDiceLoss
-
-
+from utils.metrics import setup_seed
+import argparse
+import importlib
+import shutil
 def train_model(
     model,
     device,
@@ -141,7 +143,7 @@ def train_model(
                 except:
                     pass
         if iou > best_iou:
-            dir_checkpoint = Path("./checkpoints/")
+            dir_checkpoint = Path("./checkpoint_inside/")
             Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
             best_iou = iou
             torch.save(model.state_dict(), dir_checkpoint / f"best_model.pth")
@@ -152,25 +154,42 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logging.info(f"Using device {device}")
-
-    # model = UNet_base()
-    import segmentation_models_pytorch as smp
-
-    # model = smp.DeepLabV3Plus(
-    #     encoder_name="resnet101", encoder_weights="imagenet", in_channels=3, classes=1
-    # )
-    model = SegModel(
-        encoder="resnet101",
-        network="DeepLabV3Plus",
-        in_channels=3,
-        n_class=1,
-        pre_train="imagenet"
-    )
+    
+    # set random seed
+    parser = argparse.ArgumentParser(description='Train')
+    parser.add_argument('-c', '--config', type=str, help='Configuration File')
+    config_name=parser.parse_args().config
+    config = importlib.import_module("." + config_name, package='config').config
+    setup_seed(config['seed'])
+    Kfold=config['Kfold_index']#0,1,2,3,4
+    
+    
+    model = SegModel(encoder=config['encoder'], network=config['model_network'],
+                     in_channels=config['in_channels'], n_class=config['n_class'])
     model.to(device=device)
 
     logging.info(f'Network:\n'
                 f'\t{model.in_channels} input channels\n'
                 f'\t{model.n_classes} output channels (classes)\n')
+    
+    
+    # model save path
+    save_ckpt_path = os.path.join('./checkpoints', config['save_path'], 'pth')
+    save_log_path = os.path.join('./checkpoints', config['save_path'])
+    if not os.path.exists(save_ckpt_path):
+        os.makedirs(save_ckpt_path)
+    if not os.path.exists(save_log_path):
+        os.makedirs(save_log_path)
+    config['save_log_path'] = save_log_path
+    old_config_name_path='./config'+'/'+config_name+'.py'
+    new_config_name_path = config['save_log_path'] + '/' + config_name + '.py'
+    shutil.copyfile(src=old_config_name_path,dst=new_config_name_path)
+    #copy the config.py to the log path
+    config['save_ckpt_path'] = save_ckpt_path
+    
+
+    
+    
     train_model(
         model=model,
         epochs=25,

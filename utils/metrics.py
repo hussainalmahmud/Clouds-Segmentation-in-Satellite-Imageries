@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from sklearn.metrics import f1_score
-
+import random
 
 class XEDiceLoss(torch.nn.Module):
     """
@@ -75,3 +75,11 @@ def f1_score_fun(pred, true):
     score = f1_score(pred_np, true_np)
 
     return score
+
+
+def setup_seed(seed):
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)

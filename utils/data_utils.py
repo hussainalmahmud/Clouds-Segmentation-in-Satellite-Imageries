@@ -50,7 +50,7 @@ def prepare_datasets():
         # Check if the identifiers match
         assert img_name == mask_name, f"Mismatch found: {img_name} and {mask_name}"
 
-    print("head dataset ", dataset.head())
+    print(dataset.head())
     print("dataset shape ", dataset.shape)
     # dataset = dataset.iloc[:100]
 

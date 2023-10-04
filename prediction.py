@@ -19,7 +19,7 @@ import cv2
 import tifffile
 import glob
 import pandas as pd
-from model.unet import UNet
+from archive.unet import UNet
 from model.unet_base import UNet_base
 from utils.data_utils import LoadDataset, DataTransform
 import segmentation_models_pytorch as smp
