@@ -24,7 +24,6 @@ def prepare_datasets():
 
     # Function to extract the numerical identifier from filename
     def extract_number(filepath):
-        # Extract number from the filename using regular expression
         match = re.search(r"(\d+)", filepath)
         if match:
             return int(match.group(1))
@@ -52,12 +51,10 @@ def prepare_datasets():
 
     print(dataset.head())
     print("dataset shape ", dataset.shape)
-    # dataset = dataset.iloc[:100]
+    dataset = dataset.iloc[:100]
 
-    # Split dataset into training and validation subsets
     train_df, valid_df = train_test_split(dataset, test_size=0.2, random_state=42)
 
-    # Assume LoadDataset and DataTransform are defined elsewhere in your code
     train_set = LoadDataset(train_df, "train", transform=DataTransform())
     valid_set = LoadDataset(valid_df, "valid", transform=DataTransform())
 
@@ -132,7 +129,6 @@ class LoadDataset(Dataset):
         return len(self.df)
 
     def get_dataframe(self):
-        """Method to return the internal DataFrame."""
         return self.df
 
     def __getitem__(self, index):

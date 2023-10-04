@@ -23,7 +23,7 @@ def train_fun(
 ):
     epoch_loss = 0
     total_step = global_step
-    ## Add Iou for training
+    ## Add Iou and f1 score
 
     model.train()
     with tqdm(

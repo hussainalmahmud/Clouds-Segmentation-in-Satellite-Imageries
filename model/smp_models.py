@@ -7,7 +7,7 @@ class SegModel(nn.Module):
         self.in_channels = in_channels  
         self.n_classes = n_class  
         super(SegModel, self).__init__()
-        self.smp_model_name = ["Unet","DeepLabV3Plus"]
+        self.smp_model_name = ["UnetPlusPlus","DeepLabV3Plus"]
         self.model = getattr(smp,network)(
             encoder_name=encoder,encoder_weights=pre_train,in_channels=in_channels,classes=n_class,
             

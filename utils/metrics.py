@@ -77,7 +77,7 @@ def f1_score_fun(pred, true):
     return score
 
 
-def setup_seed(seed):
+def get_seed(seed):
     np.random.seed(seed)
     random.seed(seed)
     torch.manual_seed(seed)
