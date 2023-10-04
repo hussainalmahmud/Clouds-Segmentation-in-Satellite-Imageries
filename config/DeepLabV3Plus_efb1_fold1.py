@@ -4,7 +4,7 @@ config = dict(
     Kfold_index=1,#0,1,2,3,4
     train_image_id_txt_path='',
     val_image_id_txt_path='',
-    encoder='efficientnet-b1',
+    encoder='timm-efficientnet-b1',
     model_network='DeepLabV3Plus',
     in_channels=3,
     n_class=1,
@@ -17,6 +17,5 @@ config = dict(
     weight_decay = 0.0005,
     save_inter_epoch = 5,
     print_freq = 50,
-    num_workers = 8,
 )
 config['save_path']='{}_{}_fold_{}'.format(config['encoder'],config['model_network'],config['Kfold_index'])

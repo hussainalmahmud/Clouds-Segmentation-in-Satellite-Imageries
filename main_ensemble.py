@@ -19,13 +19,14 @@ from archive.unet import UNet
 from model.unet_base import UNet_base
 from model.smp_models import SegModel
 from utils.data_utils import prepare_datasets
-from utils.train_eval import train_fun, eval_fun
+from utils.train_eval_ensemble import train_fun, eval_fun
 from utils.metrics import XEDiceLoss
 from utils.metrics import setup_seed
 import argparse
 import importlib
 import shutil
 def train_model(
+    config,
     model,
     device,
     epochs: int = 5,
@@ -89,12 +90,14 @@ def train_model(
     )
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, "max", patience=5
-    )  # goal: maximize Dice score
+    )  
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
     criterion = XEDiceLoss()
     global_step = 0
     best_iou = 0
 
+    model.to(device=device)
+    model = nn.DataParallel(model)
     for epoch in range(1, epochs + 1):
         average_epoch_loss, global_step = train_fun(
             model=model,
@@ -143,11 +146,13 @@ def train_model(
                 except:
                     pass
         if iou > best_iou:
-            dir_checkpoint = Path("./checkpoint_inside/")
-            Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
+            # dir_checkpoint = Path("./checkpoint_inside/")
+            # Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
+            save_ckpt_path = config['save_ckpt_path']
             best_iou = iou
-            torch.save(model.state_dict(), dir_checkpoint / f"best_model.pth")
-            logging.info(f"Checkpoint {epoch} saved !")
+            # torch.save(model.state_dict(), save_ckpt_path / f"best_model.pth")
+            torch.save(model.state_dict(), os.path.join(save_ckpt_path, f"best_model.pth"))
+            logging.info(f"Best Checkpoint at {epoch} saved !")
 
 
 if __name__ == "__main__":
@@ -161,14 +166,17 @@ if __name__ == "__main__":
     config_name=parser.parse_args().config
     config = importlib.import_module("." + config_name, package='config').config
     setup_seed(config['seed'])
-    Kfold=config['Kfold_index']#0,1,2,3,4
+    # Kfold=config['Kfold_index']#0,1,2,3,4
     
     
     model = SegModel(encoder=config['encoder'], network=config['model_network'],
                      in_channels=config['in_channels'], n_class=config['n_class'])
-    model.to(device=device)
+    
 
     logging.info(f'Network:\n'
+                # log model name and encoder, and network
+                f"Model name:{config['model_network']}\n"
+                f"Encoder:{config['encoder']}\n"
                 f'\t{model.in_channels} input channels\n'
                 f'\t{model.n_classes} output channels (classes)\n')
     
@@ -191,8 +199,9 @@ if __name__ == "__main__":
     
     
     train_model(
+        config=config,
         model=model,
-        epochs=25,
+        epochs=2,
         batch_size=4,
         learning_rate=1e-4,  # 0.0001
         device=device,

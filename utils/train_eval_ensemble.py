@@ -63,7 +63,7 @@ def train_fun(
 def eval_fun(model, val_loader, device, amp):
     iou_list = []
     f1_list = []
-    val_loader = tqdm(val_loader, desc="Validation round", unit="batch", leave=False)
+    val_loader = tqdm(val_loader, desc="Validation round", unit="batch", leave=True)
     with torch.no_grad():
         model.eval()
         for data, targets in val_loader:

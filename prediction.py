@@ -64,10 +64,10 @@ def run_inference(model, df_test, test_loader, model_path, PATH_OUTPUT, batch_si
                 # plt.close()
 
                 pred_sub = cv2.resize(pred, (1000, 1000), interpolation=0)
-                pred = (pred_sub > 0.5).astype(np.uint8)
+                pred_threshold = (pred_sub > 0.5).astype(np.uint8)
 
                 idx = fname.split("_")[-1]
-                imageio.imsave(f"{PATH_OUTPUT}/evaluation_mask_{idx}", pred)
+                imageio.imsave(f"{PATH_OUTPUT}/evaluation_mask_{idx}", pred_threshold)
 
     # zip the file
     import shutil
@@ -117,7 +117,7 @@ if __name__ == "__main__":
     # model = smp.DeepLabV3Plus(encoder_name="resnet101", encoder_weights="imagenet", in_channels=3, classes=1)
     # Load the checkpoint
     # checkpoint = torch.load('./checkpoints/model.pth')
-    # new_state_dict = {k.replace('module.', ''): v for k, v in checkpoint.items()}
+    # a
     # model.load_state_dict(new_state_dict)
 
     # model = torch.hub.load('milesial/Pytorch-UNet', 'unet_carvana', pretrained=True, scale=0.5) # best model so far 0.26
