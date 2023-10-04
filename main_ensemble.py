@@ -34,7 +34,6 @@ def train_model(
     learning_rate: float = 1e-5,
     val_percent: float = 0.1,
     save_checkpoint: bool = True,
-    img_scale: float = 0.5,
     amp: bool = False,
     weight_decay: float = 1e-8,
     momentum: float = 0.999,
@@ -63,7 +62,7 @@ def train_model(
             learning_rate=learning_rate,
             val_percent=val_percent,
             save_checkpoint=save_checkpoint,
-            img_scale=img_scale,
+            # img_scale=img_scale,
             amp=amp,
         )
     )
@@ -81,14 +80,17 @@ def train_model(
     """
     )
 
-    optimizer = optim.RMSprop(
-        model.parameters(),
-        lr=learning_rate,
-        weight_decay=weight_decay,
-        momentum=momentum,
-        foreach=True,
+    # optimizer = optim.AdamW(
+    #     model.parameters(),
+    #     lr=learning_rate,
+    #     weight_decay=weight_decay,
+    #     momentum=momentum,
+    #     foreach=True,
+    # )
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=learning_rate, weight_decay=weight_decay
     )
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, "max", patience=5
     )  
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
@@ -146,11 +148,8 @@ def train_model(
                 except:
                     pass
         if iou > best_iou:
-            # dir_checkpoint = Path("./checkpoint_inside/")
-            # Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
             save_ckpt_path = config['save_ckpt_path']
             best_iou = iou
-            # torch.save(model.state_dict(), save_ckpt_path / f"best_model.pth")
             torch.save(model.state_dict(), os.path.join(save_ckpt_path, f"best_model.pth"))
             logging.info(f"Best Checkpoint at {epoch} saved !")
 
@@ -160,7 +159,6 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logging.info(f"Using device {device}")
     
-    # set random seed
     parser = argparse.ArgumentParser(description='Train')
     parser.add_argument('-c', '--config', type=str, help='Configuration File')
     config_name=parser.parse_args().config
@@ -194,18 +192,14 @@ if __name__ == "__main__":
     shutil.copyfile(src=old_config_name_path,dst=new_config_name_path)
     #copy the config.py to the log path
     config['save_ckpt_path'] = save_ckpt_path
-    
 
-    
-    
     train_model(
         config=config,
         model=model,
-        epochs=2,
-        batch_size=4,
-        learning_rate=1e-4,  # 0.0001
+        epochs=25,
+        batch_size=8,
+        learning_rate=config["learning_rate"],  # 5e-4
         device=device,
-        img_scale=0.5,
         val_percent=10.0 / 100,
         amp=False,
     )
