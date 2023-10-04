@@ -36,7 +36,6 @@ def train_model(
     train_loader = DataLoader(train_set, shuffle=True, **loader_args)
     val_loader = DataLoader(valid_set, shuffle=False, drop_last=True, **loader_args)
 
-   
     experiment = wandb.init(
         project="Cloud Segmentation - Solafune Contest 2023",
         resume="allow",
@@ -133,7 +132,6 @@ def train_model(
             torch.save(model.state_dict(), os.path.join(save_ckpt_path, f"best_model.pth"))
             logging.info(f"Best Checkpoint at {epoch} saved !")
 
-
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -154,7 +152,6 @@ if __name__ == "__main__":
                 f'\t{model.in_channels} input channels\n'
                 f'\t{model.n_classes} output channels (classes)\n')
     
-    
     # model save path
     save_ckpt_path = os.path.join('./checkpoints', config['save_path'], 'pth')
     if not os.path.exists(save_ckpt_path):
@@ -166,7 +163,7 @@ if __name__ == "__main__":
         model=model,
         epochs=50,
         batch_size=8,
-        learning_rate=config["learning_rate"],  # 5e-4
+        learning_rate=config["learning_rate"],
         device=device,
         val_percent=10.0 / 100,
         amp=False,

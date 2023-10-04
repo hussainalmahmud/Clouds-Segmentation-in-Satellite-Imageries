@@ -39,16 +39,8 @@ class XEDiceLoss(torch.nn.Module):
 def intersection_over_union(pred, true):
     """
     Calculates intersection and union for a batch of images.
-
-    Args:
-        pred (torch.Tensor): a tensor of predictions
-        true (torc.Tensor): a tensor of labels
-
-    Returns:
-        intersection (int): total intersection of pixels
-        union (int): total union of pixels
     """
-    valid_pixel_mask = true.ne(255)  # valid pixel mask
+    valid_pixel_mask = true.ne(255)
     true = true.masked_select(valid_pixel_mask).to("cpu")
     pred = pred.masked_select(valid_pixel_mask).to("cpu")
 
@@ -61,13 +53,6 @@ def intersection_over_union(pred, true):
 def f1_score_fun(pred, true):
     """
     Calculates f1 score for a batch of images.
-
-    Args:
-        pred (torch.Tensor): a tensor of predictions
-        true (torc.Tensor): a tensor of labels
-
-    Returns:
-        f1_score (int): f1 score
     """
     true_np = true.cpu().numpy().flatten().astype(int)
     pred_np = pred.cpu().numpy().flatten().astype(int)

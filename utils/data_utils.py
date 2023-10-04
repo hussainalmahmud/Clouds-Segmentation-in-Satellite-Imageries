@@ -29,7 +29,6 @@ def prepare_datasets():
             return int(match.group(1))
         return -1  # return a default value if no number is found
 
-    # Sort file paths based on numerical identifier
     PATH_IMGS = sorted(PATH_IMGS, key=extract_number)
     PATH_MASKS = sorted(PATH_MASKS, key=extract_number)
 
@@ -38,7 +37,6 @@ def prepare_datasets():
 
     # Check through the dataset to ensure that each image and its corresponding mask share the same identifier
     for _, row in dataset.iterrows():
-        # Extract the base filename without extension
         img_name = os.path.splitext(os.path.basename(row["image_path"]))[0].replace(
             "train_true_color_", ""
         )
@@ -46,7 +44,6 @@ def prepare_datasets():
             "train_mask_", ""
         )
 
-        # Check if the identifiers match
         assert img_name == mask_name, f"Mismatch found: {img_name} and {mask_name}"
 
     print(dataset.head())
