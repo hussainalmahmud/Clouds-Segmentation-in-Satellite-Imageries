@@ -6,14 +6,13 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 import wandb
-from model.unet_base import UNet_base
 from model.smp_models import SegModel
 from utils.data_utils import prepare_datasets
 from utils.train_eval import train_fun, eval_fun
 from utils.metrics import XEDiceLoss
 from utils.metrics import get_seed
-import argparse
 import importlib
+
 
 def train_model(
     config,
@@ -28,7 +27,6 @@ def train_model(
     weight_decay: float = 1e-8,
     gradient_clipping: float = 1.0,
 ):
-    
     # 1. Create and load dataset
     train_set, valid_set = prepare_datasets()
     loader_args = dict(
@@ -69,9 +67,7 @@ def train_model(
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay
     )
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, "max", patience=5
-    )  
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, "max", patience=5)
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
     criterion = XEDiceLoss()
     global_step = 0
@@ -128,38 +124,45 @@ def train_model(
                 except:
                     pass
         if f1_score > best_f1:
-            save_ckpt_path = config['save_ckpt_path']
+            save_ckpt_path = config["save_ckpt_path"]
             best_f1 = f1_score
-            torch.save(model.state_dict(), os.path.join(save_ckpt_path, f"best_model.pth"))
+            torch.save(
+                model.state_dict(), os.path.join(save_ckpt_path, f"best_model.pth")
+            )
             logging.info(f"Best Checkpoint at {epoch} saved !")
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logging.info(f"Using device {device}")
-    
-    parser = argparse.ArgumentParser(description='Train')
-    parser.add_argument('-c', '--config', type=str, help='Configuration File')
-    # get fold number
-    parser.add_argument('-f', '--fold', type=int, help='Fold Number')
-    config_name=parser.parse_args().config
-    config = importlib.import_module("." + config_name, package='config').config
-    get_seed(config['seed'])
-    
-    model = SegModel(encoder=config['encoder'], network=config['model_network'],
-                    in_channels=config['in_channels'], n_class=config['n_class'])
-    
-    logging.info(f'Network:\n'
-                f"Model name:{config['model_network']}\n"
-                f"Encoder:{config['encoder']}\n"
-                f'\t{model.in_channels} input channels\n'
-                f'\t{model.n_classes} output channels (classes)\n')
-    
+
+    parser = argparse.ArgumentParser(description="Train")
+    parser.add_argument("-c", "--config", type=str, help="Configuration File")
+    config_name = parser.parse_args().config
+    config = importlib.import_module("." + config_name, package="config").config
+    get_seed(config["seed"])
+
+    model = SegModel(
+        encoder=config["encoder"],
+        network=config["model_network"],
+        in_channels=config["in_channels"],
+        n_class=config["n_class"],
+    )
+
+    logging.info(
+        f"Network:\n"
+        f"Model name:{config['model_network']}\n"
+        f"Encoder:{config['encoder']}\n"
+        f"\t{model.in_channels} input channels\n"
+        f"\t{model.n_classes} output channels (classes)\n"
+    )
+
     # model save path
-    save_ckpt_path = os.path.join('./checkpoints', config['save_path'], 'pth')
+    save_ckpt_path = os.path.join("./checkpoints", config["save_path"], "pth")
     if not os.path.exists(save_ckpt_path):
         os.makedirs(save_ckpt_path)
-    config['save_ckpt_path'] = save_ckpt_path
+    config["save_ckpt_path"] = save_ckpt_path
 
     train_model(
         config=config,

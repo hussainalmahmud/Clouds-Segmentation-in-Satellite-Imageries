@@ -1,9 +1,6 @@
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
-import numpy as np
-import torch.nn.functional as F
-from tqdm import tqdm
 from utils.metrics import intersection_over_union, f1_score_fun
 
 
@@ -37,13 +34,13 @@ def train_fun(
             ):
                 masks_pred = model(images)
                 loss = criterion(masks_pred, true_masks)
-                
+
             optimizer.zero_grad(set_to_none=True)
             grad_scaler.scale(loss).backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
             grad_scaler.step(optimizer)
             grad_scaler.update()
-            
+
             trainbar.update(images.shape[0])
             total_step += 1
             epoch_loss += loss.item()
@@ -75,7 +72,7 @@ def eval_fun(model, val_loader, device, amp):
                 probas = F.sigmoid(predicted_mask)
 
             predicted_mask = (probas > 0.5).float().squeeze()
-    
+
             batch_iou = intersection_over_union(predicted_mask, true_mask)
             batch_f1 = f1_score_fun(predicted_mask, true_mask)
             iou_list.append(batch_iou)

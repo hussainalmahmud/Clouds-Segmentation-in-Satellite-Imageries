@@ -1,8 +1,8 @@
 import torch
-import torch.nn as nn
 import numpy as np
 from sklearn.metrics import f1_score
 import random
+
 
 class XEDiceLoss(torch.nn.Module):
     """
@@ -15,7 +15,7 @@ class XEDiceLoss(torch.nn.Module):
 
     def forward(self, pred, true):
         pred = pred.squeeze(1)
-        valid_pixel_mask = true.ne(255) 
+        valid_pixel_mask = true.ne(255)
 
         temp_true = torch.where((true == 255), 0, true)
         bce_loss = self.bce(pred, temp_true.float())

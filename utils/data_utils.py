@@ -1,13 +1,13 @@
+import re
+import os
+import glob
+import pandas as pd
 import numpy as np
 import tifffile
 import albumentations as A
 from torch.utils.data import Dataset
 from albumentations.pytorch import ToTensorV2
-import glob
-import pandas as pd
 from sklearn.model_selection import train_test_split
-import re
-import os
 
 
 def prepare_datasets():
@@ -17,12 +17,11 @@ def prepare_datasets():
     Args:
         fold (int): The fold number. For fold = 0, the first `fold_size` samples are used for validation.
         num_folds (int): The total number of folds to divide the data.
-    
+
     Returns:
         train_set, valid_set: The prepared training and validation datasets for the specified fold.
     """
 
-    # Retrieve paths for image and mask data
     PATH_IMGS = glob.glob("./data/train_true_color/train_true_color_*.tif")
     PATH_MASKS = glob.glob("./data/train_mask/train_mask_*.tif")
 
@@ -31,15 +30,13 @@ def prepare_datasets():
         match = re.search(r"(\d+)", filepath)
         if match:
             return int(match.group(1))
-        return -1  # return a default value if no number is found
+        return -1  
 
     PATH_IMGS = sorted(PATH_IMGS, key=extract_number)
     PATH_MASKS = sorted(PATH_MASKS, key=extract_number)
 
-    # Create a DataFrame with image and mask paths
     dataset = pd.DataFrame({"image_path": PATH_IMGS, "mask_path": PATH_MASKS})
 
-    # Check through the dataset to ensure that each image and its corresponding mask share the same identifier
     for _, row in dataset.iterrows():
         img_name = os.path.splitext(os.path.basename(row["image_path"]))[0].replace(
             "train_true_color_", ""
@@ -52,7 +49,6 @@ def prepare_datasets():
 
     print(dataset.head())
     print("dataset shape ", dataset.shape)
-    # dataset = dataset.iloc[:100]
 
     train_df, valid_df = train_test_split(dataset, test_size=0.2, random_state=42)
 
@@ -63,6 +59,7 @@ def prepare_datasets():
     print("Validation set size: ", len(valid_set))
 
     return train_set, valid_set
+
 
 class DataTransform:
     """
