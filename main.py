@@ -28,6 +28,7 @@ def train_model(
     weight_decay: float = 1e-8,
     gradient_clipping: float = 1.0,
 ):
+    
     # 1. Create and load dataset
     train_set, valid_set = prepare_datasets()
     loader_args = dict(
@@ -139,6 +140,8 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description='Train')
     parser.add_argument('-c', '--config', type=str, help='Configuration File')
+    # get fold number
+    parser.add_argument('-f', '--fold', type=int, help='Fold Number')
     config_name=parser.parse_args().config
     config = importlib.import_module("." + config_name, package='config').config
     get_seed(config['seed'])
@@ -161,7 +164,7 @@ if __name__ == "__main__":
     train_model(
         config=config,
         model=model,
-        epochs=50,
+        epochs=25,
         batch_size=8,
         learning_rate=config["learning_rate"],
         device=device,

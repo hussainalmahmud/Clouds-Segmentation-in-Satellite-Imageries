@@ -7,5 +7,6 @@ config = dict(
     learning_rate = 0.0005,
     weight_decay = 0.0005,
     seed=10000,
+    fold_n=2,
 )
 config['save_path']='{}_{}'.format(config['encoder'],config['model_network'])

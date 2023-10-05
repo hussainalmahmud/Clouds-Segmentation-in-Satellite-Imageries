@@ -1,24 +1,19 @@
 #!/usr/bin/env python3
 import os
 import torch
-import cv2
+import argparse
+import shutil
+import logging
 from tqdm import tqdm
 import numpy as np
 import glob
 import pandas as pd
-import torch
 from torch.utils.data import DataLoader
-import os
 import cv2
-import glob
-import pandas as pd
-from model.unet_base import UNet_base
 from utils.data_utils import LoadDataset, DataTransform
 import imageio
 from model.smp_models import SegModel
-import cv2
-import argparse
-import shutil
+
 
 def load_model_state_dict(model, checkpoint_path):
     """Load model state dict from a checkpoint file."""
@@ -44,6 +39,20 @@ def create_dataframe_from_paths(paths):
     print(df_test.head())
     return df_test
 
+def get_flipped_predictions(model, data, flip_dim):
+    flipped_data = torch.flip(data, [flip_dim])
+    predict = model(flipped_data).squeeze(dim=1) 
+    return torch.flip(predict, [flip_dim])
+
+def get_model_output(model, data):
+    predict_1 = model(data).squeeze(dim=1) 
+    predict_2 = get_flipped_predictions(model, data, -1)
+    predict_3 = get_flipped_predictions(model, data, -2)
+
+    return (torch.sigmoid(predict_1) + 
+            torch.sigmoid(predict_2) + 
+            torch.sigmoid(predict_3)).cpu().numpy().astype('float32') / 3
+
 def run_inference(models, test_loader, PATH_OUTPUT, df_test, batch_size=4):
     """
     Run inference using the provided model(s) and test data loader, saving predictions to the specified output path.
@@ -64,20 +73,13 @@ def run_inference(models, test_loader, PATH_OUTPUT, df_test, batch_size=4):
             img = data.cuda()
             batch_out_all = []
             
-            for idx, model in enumerate(models):
-                if idx < 6:
+            for j, model in enumerate(models):
+                if j < 6:
                     output = model(img)
                     output = output.squeeze(dim=1)
                     output = torch.sigmoid(output).cpu().numpy().astype('float32')                
                 else:
-                    print("flip")
-                    predict_1 = model(data)[:, 0, :, :]  # [b,c,h,w]->[b,1,h,w]->[b,h,w]
-                    predict_2 = model(torch.flip(data, [-1]))[:, 0, :, :]  # [b,c,h,w]->[b,1,h,w]->[b,h,w]
-                    predict_2 = torch.flip(predict_2, [-1])
-                    predict_3 = model(torch.flip(data, [-2]))[:, 0, :, :]  # [b,c,h,w]->[b,1,h,w]->[b,h,w]
-                    predict_3 = torch.flip(predict_3, [-2])
-                    output = (torch.sigmoid(predict_1) + torch.sigmoid(predict_2)
-                              + torch.sigmoid(predict_3)).cpu().numpy().astype('float32') / 3
+                    output = get_model_output(model, data)
                 batch_out_all.append(output)
             
             output_mean = np.mean(batch_out_all, 0)
@@ -105,70 +107,70 @@ def run_inference(models, test_loader, PATH_OUTPUT, df_test, batch_size=4):
     print("successfully zipped")
 
 
-def main():
-    batch_size = 4
-    image_paths = gather_image_paths("./data/evaluation_true_color/evaluation_*.tif")
+def main(image_paths, path_output, batch_size, in_channels, n_class, networks, encoders, checkpoint_paths):
+    batch_size = batch_size
+    image_paths = gather_image_paths(image_paths)
     df_test = create_dataframe_from_paths(image_paths)
 
     df_test = LoadDataset(df_test, "test", DataTransform())
     test_loader = DataLoader(df_test, batch_size, shuffle=False)
 
-    PATH_OUTPUT = "./OUTPUT_Predictions/submission/"
+    PATH_OUTPUT = path_output
     if not os.path.exists(PATH_OUTPUT):
         os.makedirs(PATH_OUTPUT)
 
-    num_workers= os.cpu_count()
-    networks = [
-        'DeepLabV3Plus',
-        'DeepLabV3Plus',
-        'DeepLabV3Plus',
-        'DeepLabV3Plus',
-        'UnetPlusPlus',
-        'UnetPlusPlus',
-        'UnetPlusPlus',
-        'UnetPlusPlus',]
-    encoders = [
-                'timm-efficientnet-b1',
-                'timm-efficientnet-b2', 
-                'timm-efficientnet-b3',
-                'resnet101',
-                'timm-efficientnet-b1',
-                'timm-efficientnet-b2', 
-                'timm-efficientnet-b3',
-                'resnet101'
-                ] 
+    networks = networks
+    encoders = encoders
     
-    checkpoint_paths = [
-        "./checkpoints/timm-efficientnet-b1_DeepLabV3Plus/pth/best_model.pth",
-        "./checkpoints/timm-efficientnet-b2_DeepLabV3Plus/pth/best_model.pth",
-        "./checkpoints/timm-efficientnet-b3_DeepLabV3Plus/pth/best_model.pth",
-        "./checkpoints/resnet101_DeepLabV3Plus/pth/best_model.pth",
-        "./checkpoints/timm-efficientnet-b1_UnetPlusPlus/pth/best_model.pth",
-        "./checkpoints/timm-efficientnet-b2_UnetPlusPlus/pth/best_model.pth",
-        "./checkpoints/timm-efficientnet-b3_UnetPlusPlus/pth/best_model.pth",
-        "./checkpoints/resnet101_UnetPlusPlus/pth/best_model.pth",
-    ]
+    logging.info(f"Encoders: {encoders}")
+    logging.info(f"Networks: {networks}")
+    checkpoint_paths = checkpoint_paths
     models = []
-    in_channels = 3
-    n_class = 1
+    in_channels = in_channels
+    n_class = n_class
     for i in range(len(networks)):
         network = networks[i]
         encoder = encoders[i]
         checkpoint_path = checkpoint_paths[i]
         model = SegModel(encoder=encoder, network=network,
-                           in_channels=in_channels, n_class=n_class,pre_train=None).cuda()
+                        in_channels=in_channels, n_class=n_class,pre_train=None).cuda()
         model = torch.nn.DataParallel(model)
         load_model_state_dict(model, checkpoint_path)
         models.append(model)
 
-    print(f"Loaded {len(models)} models")
+    logging.info(f"Number of Models: {models}")
 
     run_inference(
     models=models,
     test_loader=test_loader, 
-    PATH_OUTPUT=PATH_OUTPUT,    df_test=df_test, 
+    PATH_OUTPUT=PATH_OUTPUT, df_test=df_test, 
     batch_size=batch_size,  
     )
 
 if __name__ == "__main__":
-    main()
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    parser = argparse.ArgumentParser(description='Run inference on images.')
+    parser.add_argument('--image_paths', type=str, required=True, help='Pattern for gathering image paths')
+    parser.add_argument('--path_output', type=str, required=True, help='Path for output')
+    parser.add_argument('--batch_size', type=int, required=True, help='Batch size')
+    parser.add_argument('--in_channels', type=int, required=True, help='Input channels')
+    parser.add_argument('--n_class', type=int, required=True, help='Number of classes')
+    parser.add_argument('--networks', type=str, required=True, nargs='+', help='Networks')
+    parser.add_argument('--encoders', type=str, required=True, nargs='+', help='Encoders')
+    parser.add_argument('--checkpoint_paths', type=str, required=True, nargs='+', help='Paths to model checkpoint files')
+    
+    args = parser.parse_args()
+    
+    assert len(args.networks) == len(args.encoders) == len(args.checkpoint_paths), "Mismatch in the length of network, encoder, and checkpoint path lists"
+
+    main(
+        image_paths=args.image_paths,
+        path_output=args.path_output,
+        batch_size=args.batch_size,
+        in_channels=args.in_channels,
+        n_class=args.n_class,
+        networks=args.networks,
+        encoders=args.encoders,
+        checkpoint_paths=args.checkpoint_paths
+    )
+    

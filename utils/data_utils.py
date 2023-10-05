@@ -12,10 +12,14 @@ import os
 
 def prepare_datasets():
     """
-    Prepare training and validation datasets.
+    Prepare training and validation datasets based on the specified fold.
 
+    Args:
+        fold (int): The fold number. For fold = 0, the first `fold_size` samples are used for validation.
+        num_folds (int): The total number of folds to divide the data.
+    
     Returns:
-        train_set, valid_set: The prepared training and validation datasets.
+        train_set, valid_set: The prepared training and validation datasets for the specified fold.
     """
 
     # Retrieve paths for image and mask data
@@ -48,7 +52,7 @@ def prepare_datasets():
 
     print(dataset.head())
     print("dataset shape ", dataset.shape)
-    dataset = dataset.iloc[:100]
+    # dataset = dataset.iloc[:100]
 
     train_df, valid_df = train_test_split(dataset, test_size=0.2, random_state=42)
 
@@ -59,7 +63,6 @@ def prepare_datasets():
     print("Validation set size: ", len(valid_set))
 
     return train_set, valid_set
-
 
 class DataTransform:
     """
