@@ -164,6 +164,5 @@ data/
 wandb/
 OUTPUT_Predictions*/
 archive/
-checkpoints*/
 # ignore 
 .zip
