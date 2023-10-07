@@ -15,20 +15,36 @@ import imageio
 from model.smp_models import SegModel
 
 
-def load_model_state_dict(model, checkpoint_path):
+import torch
+
+def load_model_state_dict(checkpoint_path, model):
     """Load model state dict from a checkpoint file."""
     checkpoints = torch.load(checkpoint_path)
+    
     if "state_dict" in checkpoints and checkpoint_path.split(".")[-1] == "pth":
         state_dict = checkpoints["state_dict"]
-    else:
-        state_dict = checkpoints
-    if any(key.startswith("module.") for key in state_dict.keys()):
-        state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
-    if isinstance(model, torch.nn.DataParallel):
-        state_dict = {f"module.{k}": v for k, v in state_dict.items()}
+        
+        if any(key.startswith("module.") for key in state_dict.keys()):
+            state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
+        
+        if isinstance(model, torch.nn.DataParallel):
+            new_state_dict = {}
+            for key, value in state_dict.items():
+                new_key = "module." + key
+                new_state_dict[new_key] = value
+            state_dict = new_state_dict
+        
+        return state_dict
+    
+    return checkpoints
 
-    model.load_state_dict(state_dict)
-
+# def load_model_state_dict(checkpoint_path):
+#     checkpoints = torch.load(checkpoint_path)
+#     assert checkpoint_path.split(".")[-1] in ['pth', 'pkl']
+#     if checkpoint_path.split(".")[-1] == 'pth':
+#         return checkpoints['state_dict']
+#     else:
+#         return checkpoints
 
 def gather_image_paths(path_pattern):
     image_path = glob.glob(path_pattern)
@@ -69,9 +85,9 @@ def run_inference(models, test_loader, PATH_OUTPUT, df_test, batch_size=4):
         batch_size (int, optional): Batch size for the DataLoader. Defaults to 4.
     """
 
-    for model in models:
-        model.eval()
-        model.cuda()
+    # for model in models:
+        # model.eval()
+        # model.cuda()  
 
     with torch.no_grad():
         for i, data in tqdm(enumerate(test_loader), total=len(test_loader)):
@@ -79,6 +95,7 @@ def run_inference(models, test_loader, PATH_OUTPUT, df_test, batch_size=4):
             batch_out_all = []
 
             for j, model in enumerate(models):
+                model.eval()
                 if j < 6:
                     output = model(img)
                     output = output.squeeze(dim=1)
@@ -124,6 +141,8 @@ def main(
     encoders,
     checkpoint_paths,
 ):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logging.info(f"Using device {device}")
     image_paths = gather_image_paths(image_paths)
     df_test = create_dataframe_from_paths(image_paths)
 
@@ -152,7 +171,8 @@ def main(
             pre_train=None,
         ).cuda()
         model = torch.nn.DataParallel(model)
-        load_model_state_dict(model, checkpoint_path)
+        checkpoints = load_model_state_dict(checkpoint_path, model)
+        model.load_state_dict(checkpoints)
         models.append(model)
 
     logging.info(f"Number of Models: {models}")
