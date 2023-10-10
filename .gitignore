@@ -167,3 +167,4 @@ archive/
 checkpoint*/
 # ignore 
 .zip
+model*/
