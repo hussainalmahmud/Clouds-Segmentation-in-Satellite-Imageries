@@ -2,8 +2,7 @@ import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 from utils.metrics import intersection_over_union, f1_score_fun
-
-
+from torch import nn
 def train_fun(
     model,
     criterion,
@@ -16,12 +15,14 @@ def train_fun(
     epoch,
     epochs,
     experiment,
-    global_step,
+    global_step
 ):
     epoch_loss = 0
     total_step = global_step
-
+    model.to(device)
+    model = nn.DataParallel(model)
     model.train()
+    
     with tqdm(
         total=len(train_loader), desc=f"Epoch {epoch}/{epochs}", unit="img"
     ) as trainbar:

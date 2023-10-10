@@ -10,7 +10,57 @@ from albumentations.pytorch import ToTensorV2
 from sklearn.model_selection import train_test_split
 
 
-def prepare_datasets():
+def prepare_full_dataset():
+    """
+    Prepare training and validation datasets based on the specified fold.
+
+    Args:
+        fold (int): The fold number. For fold = 0, the first `fold_size` samples are used for validation.
+        num_folds (int): The total number of folds to divide the data.
+
+    Returns:
+        train_set, valid_set: The prepared training and validation datasets for the specified fold.
+    """
+
+    PATH_IMGS = glob.glob("./data/train_true_color/train_true_color_*.tif")
+    PATH_MASKS = glob.glob("./data/train_mask/train_mask_*.tif")
+
+    # Function to extract the numerical identifier from filename
+    def extract_number(filepath):
+        match = re.search(r"(\d+)", filepath)
+        if match:
+            return int(match.group(1))
+        return -1  
+
+    PATH_IMGS = sorted(PATH_IMGS, key=extract_number)
+    PATH_MASKS = sorted(PATH_MASKS, key=extract_number)
+
+    df_dataset = pd.DataFrame({"image_path": PATH_IMGS, "mask_path": PATH_MASKS})
+
+    for _, row in df_dataset.iterrows():
+        img_name = os.path.splitext(os.path.basename(row["image_path"]))[0].replace(
+            "train_true_color_", ""
+        )
+        mask_name = os.path.splitext(os.path.basename(row["mask_path"]))[0].replace(
+            "train_mask_", ""
+        )
+
+        assert img_name == mask_name, f"Mismatch found: {img_name} and {mask_name}"
+
+    # get only 100 data
+    # df_dataset = df_dataset.iloc[:100]
+    
+    print(df_dataset.head())
+    print("dataset shape ", df_dataset.shape)
+
+    print("df_dataset set size: ", len(df_dataset))
+
+    
+    
+    return df_dataset
+
+
+def prepare_train_valid_dataset():
     """
     Prepare training and validation datasets based on the specified fold.
 
@@ -80,6 +130,9 @@ class DataTransform:
         self.data_transform = {
             "train": A.Compose(
                 [
+                    A.ShiftScaleRotate(shift_limit=0.0625,rotate_limit=15,p=0.5), 
+                    A.GridDistortion(p=0.35), 
+                    A.GaussianBlur(p=0.25), 
                     A.RandomRotate90(p=0.5),
                     A.HorizontalFlip(p=0.5),
                     A.VerticalFlip(p=0.5),

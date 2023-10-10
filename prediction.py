@@ -13,9 +13,43 @@ import cv2
 from utils.data_utils import LoadDataset, DataTransform
 import imageio
 from model.smp_models import SegModel
+from models.unet_segform import AmpNet
 
 
-import torch
+
+# def load_model_state_dict(checkpoint_path, use_dataparallel=False):
+#     """
+#     Load model state dict from a checkpoint file.
+    
+#     Args:
+#         checkpoint_path (str): Path to the checkpoint file.
+#         use_dataparallel (bool): If True, prefix keys with 'module.'.
+
+#     Returns:
+#         state_dict (OrderedDict): State dictionary with appropriately modified keys.
+#     """
+#     checkpoint = torch.load(checkpoint_path)
+    
+#     # Extract the state_dict or the model weights directly, depending on the checkpoint file structure
+#     state_dict = checkpoint['state_dict'] if 'state_dict' in checkpoint else checkpoint
+    
+#     # Remove or add 'module.' prefix in the state_dict keys based on the use_dataparallel flag
+#     new_state_dict = {}
+#     for key, value in state_dict.items():
+#         new_key = key
+#         if use_dataparallel and not key.startswith('module.'):
+#             new_key = 'module.' + key
+#         elif not use_dataparallel and key.startswith('module.'):
+#             new_key = key.replace('module.', '', 1)
+        
+#         # Additional adaptation for 'model.' prefix in the keys
+#         new_key = new_key.replace('model.', '', 1)
+
+#         new_state_dict[new_key] = value
+    
+#     return new_state_dict
+
+
 
 def load_model_state_dict(checkpoint_path, model):
     """Load model state dict from a checkpoint file."""
@@ -74,7 +108,7 @@ def get_model_output(model, data):
     ).cpu().numpy().astype("float32") / 3
 
 
-def run_inference(models, test_loader, PATH_OUTPUT, df_test, batch_size=4):
+def run_inference(models, test_loader, PATH_OUTPUT, df_test,device, batch_size=4):
     """
     Run inference using the provided model(s) and test data loader, saving predictions to the specified output path.
 
@@ -85,13 +119,19 @@ def run_inference(models, test_loader, PATH_OUTPUT, df_test, batch_size=4):
         batch_size (int, optional): Batch size for the DataLoader. Defaults to 4.
     """
 
-    # for model in models:
-        # model.eval()
-        # model.cuda()  
+    for idx, model in enumerate(models):
+        model = model.to(device).float()  # Ensure model is float32 and on GPU.
+        models[idx] = torch.nn.DataParallel(model)  # Wrap model with DataParallel.
+        model.eval()  # Set the model to evaluation mode.
+
 
     with torch.no_grad():
         for i, data in tqdm(enumerate(test_loader), total=len(test_loader)):
-            img = data.cuda()
+            # img = data.to(device, dtype=torch.half)
+            # img = data.to(device).half()
+            # model.float()  # Ensure model is in float32
+            img = data.to(device)
+
             batch_out_all = []
 
             for j, model in enumerate(models):
@@ -101,7 +141,15 @@ def run_inference(models, test_loader, PATH_OUTPUT, df_test, batch_size=4):
                     output = output.squeeze(dim=1)
                     output = torch.sigmoid(output).cpu().numpy().astype("float32")
                 else:
-                    output = get_model_output(model, data)
+                    # output = get_model_output(model, data)
+                    print("flip")
+                    predict_1 = model(data)[:, 0, :, :]  # [b,c,h,w]->[b,1,h,w]->[b,h,w]
+                    predict_2 = model(torch.flip(data, [-1]))[:, 0, :, :]  # [b,c,h,w]->[b,1,h,w]->[b,h,w]
+                    predict_2 = torch.flip(predict_2, [-1])
+                    predict_3 = model(torch.flip(data, [-2]))[:, 0, :, :]  # [b,c,h,w]->[b,1,h,w]->[b,h,w]
+                    predict_3 = torch.flip(predict_3, [-2])
+                    output = (torch.sigmoid(predict_1) + torch.sigmoid(predict_2)
+                              + torch.sigmoid(predict_3)).cpu().numpy().astype('float32') / 3
                 batch_out_all.append(output)
 
             output_mean = np.mean(batch_out_all, 0)
@@ -147,7 +195,7 @@ def main(
     df_test = create_dataframe_from_paths(image_paths)
 
     df_test = LoadDataset(df_test, "test", DataTransform())
-    test_loader = DataLoader(df_test, batch_size, shuffle=False)
+    test_loader = DataLoader(df_test, batch_size, shuffle=False, num_workers=4, pin_memory=True)
 
     PATH_OUTPUT = path_output
     if not os.path.exists(PATH_OUTPUT):
@@ -159,6 +207,7 @@ def main(
     models = []
     input_channels = in_channels
     num_class = n_class
+    use_dataparallel = False
     for i in range(len(networks)):
         Network = networks[i]
         Encoder = encoders[i]
@@ -170,10 +219,14 @@ def main(
             n_class=num_class,
             pre_train=None,
         ).cuda()
-        model = torch.nn.DataParallel(model)
-        checkpoints = load_model_state_dict(checkpoint_path, model)
+        
+        checkpoints = load_model_state_dict(checkpoint_path, use_dataparallel)
+        
         model.load_state_dict(checkpoints)
+        # model = model.to(device).half()
+
         models.append(model)
+        model = torch.nn.DataParallel(model)
 
     logging.info(f"Number of Models: {models}")
 
@@ -182,6 +235,7 @@ def main(
         test_loader=test_loader,
         PATH_OUTPUT=PATH_OUTPUT,
         df_test=df_test,
+        device= device,
         batch_size=batch_size,
     )
 
@@ -231,3 +285,39 @@ if __name__ == "__main__":
         encoders=args.encoders,
         checkpoint_paths=args.checkpoint_paths,
     )
+
+
+# with torch.no_grad():
+#     for i, data in tqdm(enumerate(test_loader), total=len(test_loader)):
+#         img = data.cuda()
+#         batch_out_all = []
+
+#         for j, model in enumerate(models):
+#             model.eval()
+#             if j < 6:
+#                 output = model(img)
+#                 output = output.squeeze(dim=1)
+#                 output = torch.sigmoid(output).cpu().numpy().astype("float32")
+#             else:
+#                 # Define data augmentation transformations
+#                 augmentation = transforms.Compose([
+#                     transforms.RandomHorizontalFlip(),
+#                     transforms.RandomVerticalFlip(),
+#                     transforms.RandomRotation(90),
+#                 ])
+                
+#                 # Apply data augmentation to the test image
+#                 augmented_images = [augmentation(img) for _ in range(3)]  # Apply augmentation 3 times
+                
+#                 # Convert augmented images to tensors
+#                 augmented_image_tensors = [transforms.ToTensor()(aug_img).unsqueeze(0) for aug_img in augmented_images]
+                
+#                 # Generate predictions for each augmented image
+#                 predictions = [model(aug_img).squeeze(dim=1) for aug_img in augmented_image_tensors]
+                
+#                 # Average the predictions
+#                 output = sum(predictions) / len(predictions)
+
+#             batch_out_all.append(output)
+
+#         # Further processing of batch_out_all as needed
