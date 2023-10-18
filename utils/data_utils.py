@@ -9,7 +9,6 @@ from torch.utils.data import Dataset
 from albumentations.pytorch import ToTensorV2
 from sklearn.model_selection import train_test_split
 
-
 def prepare_full_dataset():
     """
     Prepare training and validation datasets based on the specified fold.
@@ -47,8 +46,8 @@ def prepare_full_dataset():
 
         assert img_name == mask_name, f"Mismatch found: {img_name} and {mask_name}"
 
-    # get only 100 data
-    # df_dataset = df_dataset.iloc[:100]
+    
+    # df_dataset = df_dataset.iloc[:100] # get only 100 data for only when debugging
     
     print(df_dataset.head())
     print("dataset shape ", df_dataset.shape)
@@ -97,6 +96,7 @@ def prepare_train_valid_dataset():
 
         assert img_name == mask_name, f"Mismatch found: {img_name} and {mask_name}"
 
+    # dataset = dataset.iloc[:100] # get only 100 data for only when debugging
     print(dataset.head())
     print("dataset shape ", dataset.shape)
 

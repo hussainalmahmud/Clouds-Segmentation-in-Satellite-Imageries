@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-import os
 import argparse
-import importlib
 import logging
+import os
 import torch
-import wandb
 import torch.nn as nn
 from torch.utils.data import DataLoader
+import wandb
 from model.smp_models import SegModel
+from model.unet_segform import AmpNet_2
 from utils.data_utils import prepare_train_valid_dataset
 from utils.train_eval import train_fun, eval_fun
 from utils.metrics import XEDiceLoss
 from utils.metrics import get_seed
+import importlib
 
 
 def train_model(
@@ -65,11 +66,9 @@ def train_model(
     """
     )
 
-    # optimizer = torch.optim.AdamW(
-    #     model.parameters(), lr=learning_rate, weight_decay=weight_decay
-    # )
-    from timm.optim import RAdam
-    optimizer = RAdam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=learning_rate, weight_decay=weight_decay
+    )
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, "max", patience=5)
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
     criterion = XEDiceLoss()
@@ -77,6 +76,7 @@ def train_model(
     best_f1 = 0
 
     model.to(device=device)
+    model = nn.DataParallel(model)
     # training
     for epoch in range(1, epochs + 1):
         average_epoch_loss, global_step = train_fun(
@@ -94,8 +94,7 @@ def train_model(
             global_step=global_step,
         )
         print(f"Epoch {epoch}, Average Train Loss: {average_epoch_loss}")
-        logging.info(f"Epoch {epoch}/{epochs}")
-        logging.info(f"Average Train Loss: {average_epoch_loss}")
+
         # Evaluation
         division_step = len(train_loader.dataset) // (5 * batch_size)
 
@@ -135,14 +134,6 @@ def train_model(
             )
             logging.info(f"Best Checkpoint at {epoch} saved !")
 
-def setup_logging(log_file="training.log"):
-    # Add the setup_logging function
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-    logger = logging.getLogger()
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-    logger.addHandler(file_handler)
-    return logger
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -162,29 +153,24 @@ if __name__ == "__main__":
         n_class=config["n_class"],
     )
 
-    # model save path
-    save_ckpt_path = os.path.join("./checkpoints", config["save_path"], "pth")
-    if not os.path.exists(save_ckpt_path):
-        os.makedirs(save_ckpt_path)
-    config["save_ckpt_path"] = save_ckpt_path
-    # Setup logging
-    log_file_path = os.path.join(config["save_ckpt_path"], "training.log")
-    logger = setup_logging(log_file=log_file_path)
-
     logging.info(
         f"Network:\n"
         f"Model name:{config['model_network']}\n"
         f"Encoder:{config['encoder']}\n"
         f"\t{model.in_channels} input channels\n"
         f"\t{model.n_classes} output channels (classes)\n"
-        # learning rate
-        f"Learning rate: {config['learning_rate']}\n"
     )
-    
+
+    # model save path
+    save_ckpt_path = os.path.join("./checkpoints", config["save_path"], "pth")
+    if not os.path.exists(save_ckpt_path):
+        os.makedirs(save_ckpt_path)
+    config["save_ckpt_path"] = save_ckpt_path
+
     train_model(
         config=config,
         model=model,
-        epochs=50,
+        epochs=25,
         batch_size=8,
         learning_rate=config["learning_rate"],
         device=device,

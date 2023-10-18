@@ -13,6 +13,7 @@ import cv2
 from utils.data_utils import LoadDataset, DataTransform
 import imageio
 from model.smp_models import SegModel
+from models.unet_segform import AmpNet
 
 
 
@@ -106,10 +107,6 @@ def get_model_output(model, data):
         torch.sigmoid(predict_1) + torch.sigmoid(predict_2) + torch.sigmoid(predict_3)
     ).cpu().numpy().astype("float32") / 3
 
-def apply_morphological_ops(input_mask, kernel_size=5):
-    kernel = np.ones((kernel_size, kernel_size), np.uint8)
-    refined_mask = cv2.morphologyEx(input_mask, cv2.MORPH_CLOSE, kernel)
-    return refined_mask
 
 def run_inference(models, test_loader, PATH_OUTPUT, df_test,device, batch_size=4):
     """
@@ -170,28 +167,9 @@ def run_inference(models, test_loader, PATH_OUTPUT, df_test,device, batch_size=4
 
                 pred_sub = cv2.resize(pred, (1000, 1000), interpolation=0)
                 pred_threshold = (pred_sub > 0.5).astype(np.uint8)
-                
-                pred_threshold = apply_morphological_ops(pred_threshold)
-                              
-                # Retrieve the original image
-                # original_image = cv2.imread(PATH)
-                # Convert binary prediction to labels [0, 1] for the CRF function
-                # labels = pred_threshold.ravel()
-                # CRF-based refinement
-                # from pydensecrf.utils import unary_from_labels
-                # from pydensecrf import densecrf as dcrf
-                # n_labels = 2
-                # d = dcrf.DenseCRF2D(original_image.shape[1], original_image.shape[0], n_labels)
-                # U = unary_from_labels(labels, n_labels, gt_prob=0.8, zero_unsure=False)
-                # d.setUnaryEnergy(U)
-                # d.addPairwiseGaussian(sxy=(3, 3), compat=3, kernel=dcrf.DIAG_KERNEL, normalization=dcrf.NORMALIZE_SYMMETRIC)
-                # Q = d.inference(10)
-                # MAP = np.argmax(Q, axis=0)
-                # refined_prediction = MAP.reshape((original_image.shape[0],original_image.shape[1]))
-                # refined_prediction = refined_prediction.astype(np.uint8)
-                # print("refined_prediction.dtype ",refined_prediction.dtype)
+
                 idx = fname.split("_")[-1]
-                imageio.imsave(f"{PATH_OUTPUT}/evaluation_mask_{idx}", refined_prediction)
+                imageio.imsave(f"{PATH_OUTPUT}/evaluation_mask_{idx}", pred_threshold)
 
     PATH_ZIP = f"./OUTPUT_Predictions/submit.zip"
     if os.path.exists(PATH_ZIP):
