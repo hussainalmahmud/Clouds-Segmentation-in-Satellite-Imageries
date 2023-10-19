@@ -36,15 +36,26 @@ tu-efficientnetv2_rw_s
 # ./checkpoints/pth/best_UnetPlusPlus_tu-efficientnetv2_rw_sfold2.pth \
 # "
 
+# CHECKPOINT_PATHS="
+# ./checkpoint_naive_70_score/efficientnet-b3_DeepLabV3Plus_fold_2/ckpt/checkpoint-best.pth \
+# ./checkpoint_naive_70_score/timm-efficientnet-b0_UnetPlusPlus_fold_4/ckpt/checkpoint-best.pth \
+# ./checkpoint_naive_70_score/timm-efficientnet-b1_UnetPlusPlus_fold_1/ckpt/checkpoint-best.pth \
+# ./checkpoint_naive_70_score/timm-efficientnet-b3_UnetPlusPlus_fold_3/ckpt/checkpoint-best.pth \
+# ./checkpoint_naive_70_score/timm-efficientnet-b3_UnetPlusPlus_fold_4/ckpt/checkpoint-best.pth \
+# ./checkpoint_naive_70_score/timm-efficientnet-b5_UnetPlusPlus_fold_4/ckpt/checkpoint-best.pth \
+# ./checkpoint_naive_70_score/tu-efficientnetv2_rw_s_UnetPlusPlus_fold_1/ckpt/checkpoint-best.pth \
+# ./checkpoint_naive_70_score/tu-efficientnetv2_rw_s_UnetPlusPlus_fold_4/ckpt/checkpoint-best.pth \
+# "
+
 CHECKPOINT_PATHS="
-./checkpoint_naive_70_score/efficientnet-b3_DeepLabV3Plus_fold_2/ckpt/checkpoint-best.pth \
-./checkpoint_naive_70_score/timm-efficientnet-b0_UnetPlusPlus_fold_4/ckpt/checkpoint-best.pth \
-./checkpoint_naive_70_score/timm-efficientnet-b1_UnetPlusPlus_fold_1/ckpt/checkpoint-best.pth \
-./checkpoint_naive_70_score/timm-efficientnet-b3_UnetPlusPlus_fold_3/ckpt/checkpoint-best.pth \
-./checkpoint_naive_70_score/timm-efficientnet-b3_UnetPlusPlus_fold_4/ckpt/checkpoint-best.pth \
-./checkpoint_naive_70_score/timm-efficientnet-b5_UnetPlusPlus_fold_4/ckpt/checkpoint-best.pth \
-./checkpoint_naive_70_score/tu-efficientnetv2_rw_s_UnetPlusPlus_fold_1/ckpt/checkpoint-best.pth \
-./checkpoint_naive_70_score/tu-efficientnetv2_rw_s_UnetPlusPlus_fold_4/ckpt/checkpoint-best.pth \
+./checkpoints/efficientnet-b3_DeepLabV3Plus/pth/best_model.pth \
+./checkpoints/efficientnet-b4_DeepLabV3Plus/pth/best_model.pth \
+./checkpoints/timm-efficientnet-b0_UnetPlusPlus/pth/best_model.pth \
+./checkpoints/timm-efficientnet-b1_UnetPlusPlus/pth/best_model.pth \
+./checkpoints/timm-efficientnet-b3_UnetPlusPlus/pth/best_model.pth \
+./checkpoints/timm-efficientnet-b4_UnetPlusPlus/pth/best_model.pth \
+./checkpoints/timm-efficientnet-b5_UnetPlusPlus/pth/best_model.pth \
+./checkpoints/tu-efficientnetv2_rw_s_UnetPlusPlus/pth/best_model.pth \
 "
 
 # Running Python Script

@@ -8,7 +8,6 @@ import wandb
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from model.smp_models import SegModel
-from model.refined_unet import RefinedUNetLite
 from utils.data_utils import prepare_train_valid_dataset
 from utils.train_eval import train_fun, eval_fun
 from utils.metrics import XEDiceLoss
@@ -66,11 +65,11 @@ def train_model(
     """
     )
 
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=learning_rate, weight_decay=weight_decay
-    )
-    # from timm.optim import RAdam
-    # optimizer = RAdam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    # optimizer = torch.optim.AdamW(
+    #     model.parameters(), lr=learning_rate, weight_decay=weight_decay
+    # )
+    from timm.optim import RAdam
+    optimizer = RAdam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, "max", patience=5)
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
     criterion = XEDiceLoss()
@@ -94,7 +93,7 @@ def train_model(
             experiment=experiment,
             global_step=global_step,
         )
-        # print(f"Epoch {epoch}, Average Train Loss: {average_epoch_loss}")
+        print(f"Epoch {epoch}, Average Train Loss: {average_epoch_loss}")
         logging.info(f"Epoch {epoch}/{epochs}")
         logging.info(f"Average Train Loss: {average_epoch_loss}")
         # Evaluation
@@ -160,10 +159,8 @@ if __name__ == "__main__":
         encoder=config["encoder"],
         network=config["model_network"],
         in_channels=config["in_channels"],
-        n_class=config["n_classes"],
+        n_class=config["n_class"],
     )
-    # model = RefinedUNetLite(in_channels=3, n_classes=1).to(device) # Adjust as per requirement
-
 
     # model save path
     save_ckpt_path = os.path.join("./checkpoints", config["save_path"], "pth")
