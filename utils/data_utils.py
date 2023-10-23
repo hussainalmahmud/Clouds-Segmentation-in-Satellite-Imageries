@@ -73,6 +73,7 @@ def prepare_train_valid_dataset():
 
     PATH_IMGS = glob.glob("./data/train_true_color/train_true_color_*.tif")
     PATH_MASKS = glob.glob("./data/train_mask/train_mask_*.tif")
+    PATH_SHADOW_MASKS = glob.glob("./data/shadow_mask/shadow_mask_*.tif")
 
     # Function to extract the numerical identifier from filename
     def extract_number(filepath):
@@ -83,8 +84,13 @@ def prepare_train_valid_dataset():
 
     PATH_IMGS = sorted(PATH_IMGS, key=extract_number)
     PATH_MASKS = sorted(PATH_MASKS, key=extract_number)
+    PATH_SHADOW_MASKS = sorted(PATH_SHADOW_MASKS, key=extract_number)
 
-    dataset = pd.DataFrame({"image_path": PATH_IMGS, "mask_path": PATH_MASKS})
+    print(len(PATH_IMGS))
+    print(len(PATH_MASKS))
+    print(len(PATH_SHADOW_MASKS))
+
+    dataset = pd.DataFrame({"image_path": PATH_IMGS, "mask_path": PATH_MASKS, "shadow_mask_path": PATH_SHADOW_MASKS})
 
     for _, row in dataset.iterrows():
         img_name = os.path.splitext(os.path.basename(row["image_path"]))[0].replace(
@@ -93,8 +99,13 @@ def prepare_train_valid_dataset():
         mask_name = os.path.splitext(os.path.basename(row["mask_path"]))[0].replace(
             "train_mask_", ""
         )
+        shadow_name = os.path.splitext(os.path.basename(row["shadow_mask_path"]))[0].replace(
+            "shadow_mask_", ""
+        )
 
+        # assert  for img_name, mask_namd and shadow_name
         assert img_name == mask_name, f"Mismatch found: {img_name} and {mask_name}"
+        assert mask_name == shadow_name, f"Mismatch found: {mask_name} and {shadow_name}" 
 
     # dataset = dataset.iloc[:100] # get only 100 data for only when debugging
     print(dataset.head())
@@ -188,17 +199,18 @@ class LoadDataset(Dataset):
         img = tifffile.imread(img_path).astype(np.float32)
         img = np.clip(img, 400, 2400) / 2400
 
+        shadow_mask_path = row["shadow_mask_path"]
+        shadow_mask = tifffile.imread(shadow_mask_path).astype(np.float32)
+        
+        # Concatenate shadow mask along the channel dimension
+        img = np.concatenate([img, shadow_mask[:, :, np.newaxis]], axis=-1)
+
         if self.phase == "test":
-            img = self.transform(self.phase, img)["image"]
-            return img
+            transformed = self.transform(self.phase, img)
+            return transformed["image"]
         else:
             mask_path = row["mask_path"]
             mask = tifffile.imread(mask_path).astype(np.float32)
-
-            if self.phase == "train":
-                transformed = self.transform(self.phase, img, mask)
-                return transformed["image"], transformed["mask"]
-
-            elif self.phase == "valid":
-                transformed = self.transform(self.phase, img, mask)
-                return transformed["image"], transformed["mask"]
+            transformed = self.transform(self.phase, img, mask)
+            
+            return transformed["image"], transformed["mask"]

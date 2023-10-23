@@ -14,6 +14,7 @@ class XEDiceLoss(torch.nn.Module):
         self.bce = torch.nn.BCEWithLogitsLoss(reduction="none")
 
     def forward(self, pred, true):
+        # print("pred.shape: ",pred.shape)
         pred = pred.squeeze(1)
         valid_pixel_mask = true.ne(255)
 

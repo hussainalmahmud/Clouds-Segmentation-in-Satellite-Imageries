@@ -34,6 +34,11 @@ def train_fun(
                 device.type if device.type != "mps" else "cpu", enabled=amp
             ):
                 masks_pred = model(images)
+                outputs = model(images)
+                if isinstance(outputs, tuple):
+                    masks_pred = outputs[0]
+                else:
+                    masks_pred = outputs
                 loss = criterion(masks_pred, true_masks)
 
             optimizer.zero_grad(set_to_none=True)
@@ -70,6 +75,8 @@ def eval_fun(model, val_loader, device, amp):
                 device.type if device.type != "mps" else "cpu", enabled=amp
             ):
                 predicted_mask = model(input_image)
+                if isinstance(predicted_mask, tuple):
+                    predicted_mask = predicted_mask[0]
                 probas = F.sigmoid(predicted_mask)
 
             predicted_mask = (probas > 0.5).float().squeeze()

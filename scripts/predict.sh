@@ -2,7 +2,7 @@
 IMAGE_PATHS_PATTERN="./data/evaluation_true_color/evaluation_*.tif"
 PATH_OUTPUT="./OUTPUT_Predictions/submission/"
 BATCH_SIZE=4
-INPUT_CHANNELS=3
+INPUT_CHANNELS=4
 N_CLASS=1
 NETWORKS=" DeepLabV3Plus \
 DeepLabV3Plus \

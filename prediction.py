@@ -81,12 +81,13 @@ def load_model_state_dict(checkpoint_path, model):
 
 def gather_image_paths(path_pattern):
     image_path = glob.glob(path_pattern)
+    shadow_mask_path = glob.glob("./data/shadow_mask_test/shadow_mask_test_*.tif")
     print(f"{len(image_path)} images")
-    return image_path
+    return image_path, shadow_mask_path
 
 
-def create_dataframe_from_paths(paths):
-    df_test = pd.DataFrame(paths, columns=["image_path"])
+def create_dataframe_from_paths(paths, shadow_mask_path):
+    df_test = pd.DataFrame({"image_path": paths, "shadow_mask_path": shadow_mask_path})    
     print(df_test.head())
     return df_test
 
@@ -141,17 +142,33 @@ def run_inference(models, test_loader, PATH_OUTPUT, df_test,device, batch_size=4
                 model.eval()
                 if j < 6:
                     output = model(img)
+                    if isinstance(output, tuple):
+                        output = output[0]
                     output = output.squeeze(dim=1)
                     output = torch.sigmoid(output).cpu().numpy().astype("float32")
                 else:
-                    # output = get_model_output(model, data)
-                    predict_1 = model(data)[:, 0, :, :]  # [b,c,h,w]->[b,1,h,w]->[b,h,w]
-                    predict_2 = model(torch.flip(data, [-1]))[:, 0, :, :]  # [b,c,h,w]->[b,1,h,w]->[b,h,w]
+                    model_output = model(data)
+                    print("output.shape: ", output.shape)
+
+                    if isinstance(model_output, tuple):
+                        model_output = model_output[0]
+                    predict_1 = model_output[:, 0, :, :]  # [b,c,h,w]->[b,1,h,w]->[b,h,w]
+                    
+                    model_output = model(torch.flip(data, [-1]))
+                    if isinstance(model_output, tuple):
+                        model_output = model_output[0]
+                    predict_2 = model_output[:, 0, :, :]  # [b,c,h,w]->[b,1,h,w]->[b,h,w]
                     predict_2 = torch.flip(predict_2, [-1])
-                    predict_3 = model(torch.flip(data, [-2]))[:, 0, :, :]  # [b,c,h,w]->[b,1,h,w]->[b,h,w]
+                    
+                    model_output = model(torch.flip(data, [-2]))
+                    if isinstance(model_output, tuple):
+                        model_output = model_output[0]
+                    predict_3 = model_output[:, 0, :, :]  # [b,c,h,w]->[b,1,h,w]->[b,h,w]
                     predict_3 = torch.flip(predict_3, [-2])
+                    
                     output = (torch.sigmoid(predict_1) + torch.sigmoid(predict_2)
-                              + torch.sigmoid(predict_3)).cpu().numpy().astype('float32') / 3
+                            + torch.sigmoid(predict_3)).cpu().numpy().astype('float32') / 3
+
                 batch_out_all.append(output)
 
             output_mean = np.mean(batch_out_all, 0)
@@ -197,8 +214,8 @@ def main(
 ):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logging.info(f"Using device {device}")
-    image_paths = gather_image_paths(image_paths)
-    df_test = create_dataframe_from_paths(image_paths)
+    image_paths, shadow_mask_path = gather_image_paths(image_paths)
+    df_test = create_dataframe_from_paths(image_paths, shadow_mask_path)
 
     df_test = LoadDataset(df_test, "test", DataTransform())
     test_loader = DataLoader(df_test, batch_size, shuffle=False, num_workers=4, pin_memory=True)
@@ -323,7 +340,8 @@ if __name__ == "__main__":
                 
 #                 # Average the predictions
 #                 output = sum(predictions) / len(predictions)
-
+#                 # median the predictions
+#                 output = torch.median(torch.stack(predictions), dim=0)[0]
 #             batch_out_all.append(output)
 
 #         # Further processing of batch_out_all as needed

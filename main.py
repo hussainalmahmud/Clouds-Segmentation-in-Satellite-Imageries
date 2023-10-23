@@ -188,7 +188,7 @@ if __name__ == "__main__":
         config=config,
         model=model,
         epochs=25,
-        batch_size=8,
+        batch_size=4,
         learning_rate=config["learning_rate"],
         device=device,
         val_percent=10.0 / 100,
