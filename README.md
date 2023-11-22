@@ -52,3 +52,7 @@ The models used in this project are renowned architectures in the field of seman
 - **UnetPlusPlus:** An advanced version of the traditional U-Net model, designed to provide more precise segmentation results, especially for smaller objects. Here, we use efficientnet-b1, efficientnet-b2, efficientnet-b3, and Resnet101 encoder as the encoders.
 
 Both model architectures are implemented using the [Segmentation Models PyTorch (SMP)](https://pypi.org/project/segmentation-models-pytorch/) library.
+
+## 🤖 Output predictions:
+
+![predictions](https://github.com/hussainsan/solafune-cloud/blob/8d7b8ea8414e86522c4acbecfc8e81ebf1672fdc/predictions_masks.png)
