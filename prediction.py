@@ -15,41 +15,6 @@ import imageio
 from model.smp_models import SegModel
 
 
-
-# def load_model_state_dict(checkpoint_path, use_dataparallel=False):
-#     """
-#     Load model state dict from a checkpoint file.
-    
-#     Args:
-#         checkpoint_path (str): Path to the checkpoint file.
-#         use_dataparallel (bool): If True, prefix keys with 'module.'.
-
-#     Returns:
-#         state_dict (OrderedDict): State dictionary with appropriately modified keys.
-#     """
-#     checkpoint = torch.load(checkpoint_path)
-    
-#     # Extract the state_dict or the model weights directly, depending on the checkpoint file structure
-#     state_dict = checkpoint['state_dict'] if 'state_dict' in checkpoint else checkpoint
-    
-#     # Remove or add 'module.' prefix in the state_dict keys based on the use_dataparallel flag
-#     new_state_dict = {}
-#     for key, value in state_dict.items():
-#         new_key = key
-#         if use_dataparallel and not key.startswith('module.'):
-#             new_key = 'module.' + key
-#         elif not use_dataparallel and key.startswith('module.'):
-#             new_key = key.replace('module.', '', 1)
-        
-#         # Additional adaptation for 'model.' prefix in the keys
-#         new_key = new_key.replace('model.', '', 1)
-
-#         new_state_dict[new_key] = value
-    
-#     return new_state_dict
-
-
-
 def load_model_state_dict(checkpoint_path, model):
     """Load model state dict from a checkpoint file."""
     checkpoints = torch.load(checkpoint_path)
@@ -309,39 +274,3 @@ if __name__ == "__main__":
         checkpoint_paths=args.checkpoint_paths,
     )
 
-
-# with torch.no_grad():
-#     for i, data in tqdm(enumerate(test_loader), total=len(test_loader)):
-#         img = data.cuda()
-#         batch_out_all = []
-
-#         for j, model in enumerate(models):
-#             model.eval()
-#             if j < 6:
-#                 output = model(img)
-#                 output = output.squeeze(dim=1)
-#                 output = torch.sigmoid(output).cpu().numpy().astype("float32")
-#             else:
-#                 # Define data augmentation transformations
-#                 augmentation = transforms.Compose([
-#                     transforms.RandomHorizontalFlip(),
-#                     transforms.RandomVerticalFlip(),
-#                     transforms.RandomRotation(90),
-#                 ])
-                
-#                 # Apply data augmentation to the test image
-#                 augmented_images = [augmentation(img) for _ in range(3)]  # Apply augmentation 3 times
-                
-#                 # Convert augmented images to tensors
-#                 augmented_image_tensors = [transforms.ToTensor()(aug_img).unsqueeze(0) for aug_img in augmented_images]
-                
-#                 # Generate predictions for each augmented image
-#                 predictions = [model(aug_img).squeeze(dim=1) for aug_img in augmented_image_tensors]
-                
-#                 # Average the predictions
-#                 output = sum(predictions) / len(predictions)
-#                 # median the predictions
-#                 output = torch.median(torch.stack(predictions), dim=0)[0]
-#             batch_out_all.append(output)
-
-#         # Further processing of batch_out_all as needed
