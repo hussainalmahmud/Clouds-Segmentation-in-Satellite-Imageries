@@ -20,23 +20,28 @@ conda create -n ENVNAME python=3.10
 conda activate ENVNAME
 ```
 
-## 📦 Install Dependencies:
+
+## 🛠 Usage Instructions
+1. Clone this repository to your local machine:
+```
+git clone https://github.com/hussainsan/Clouds-Segmentation-in-Satellite-Imageries.git
+```
+2. 📦 Install Dependencies
 ```
 pip install -r requirements.txt
 ```
 Ensure consistent code execution by installing necessary dependencies as listed in requirements.txt
 
-## 🛠 Usage Instructions
 ### 🚄 Run Model Training:
 
 ```
-sh scripts/run_train.sh
+sh scripts/train.sh
 ```
 Upon execution of the training script A directory will be automatically created to store the model checkpoints
 based on the performance.
 ### 🧠 Run Inference:
 ```
-sh scripts/run_inference.sh
+sh scripts/predict.sh
 ```
 The best models will be utilized in an ensemble to generate predictions on unseen data.
 ## 🤖 Used models:
