@@ -1,4 +1,3 @@
-# Solafune-cloud
 ## 衛星画像の雲領域検出 Masking Clouds in Satellite Imageries Contest 2023
 
 Welcome to this repository. This project is an attempt for the Solafune contest for masking clouds in satellite. I try to use techniques and models to detect cloud regions within satellite images. The aim of this contest is to improve the quality and accuracy of meteorological data interpretation.
